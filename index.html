@@ -3,95 +3,172 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Manga Studio</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+  <title>AI Photo to Anime Studio</title>
   <style>
-    body { font-family: sans-serif; margin: 10px; background: #121212; color: #fff; }
-    h2 { text-align: center; margin-bottom: 10px; }
-    .controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
-    input, button, textarea { padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; }
-    button { background: #6200ea; font-weight: bold; cursor: pointer; border: none; }
-    #canvas-container { display: flex; justify-content: center; overflow: auto; border: 2px solid #555; background: #fff; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f111a; color: #fff; padding: 16px; }
+    h1 { text-align: center; font-size: 20px; margin-bottom: 20px; color: #a29bfe; }
+    
+    /* Upload Box */
+    .upload-card {
+      border: 2px dashed #4b4b68;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      background: #181926;
+      margin-bottom: 20px;
+    }
+    .upload-card input { display: none; }
+    .upload-card label { cursor: pointer; color: #8c7ae6; font-weight: bold; }
+    #preview-img { max-width: 120px; border-radius: 8px; margin-top: 10px; display: none; margin-left: auto; margin-right: auto; }
+
+    /* Style Selector Grid */
+    .section-title { font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #dcdde1; }
+    .style-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .style-card {
+      background: #1e1f2e;
+      border: 2px solid transparent;
+      border-radius: 10px;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .style-card.active {
+      border-color: #9b59b6;
+      background: #2d2442;
+    }
+    .style-card img {
+      width: 100%;
+      height: 75px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-bottom: 6px;
+    }
+    .style-card span { font-size: 12px; font-weight: 600; }
+
+    /* Generate Button */
+    .btn-generate {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #8e44ad, #9b59b6);
+      color: white;
+      border: none;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
+    /* Result Area */
+    #result-box { margin-top: 24px; text-align: center; display: none; }
+    #result-img { width: 100%; max-width: 320px; border-radius: 12px; border: 2px solid #8e44ad; }
   </style>
 </head>
 <body>
-  <h2>AI Manga Studio</h2>
 
-  <div class="controls">
-    <textarea id="storyIdea" placeholder="Apna manga idea likho (e.g. A ninja training in rain)"></textarea>
-    <button onclick="generateScript()">1. Generate Manga Script</button>
+  <h1>✨ AI Anime Transformer</h1>
 
-    <input type="file" id="imageInput" accept="image/*" />
-    <button onclick="applyAnimeFilter()">2. Convert Photo to Anime</button>
-
-    <button onclick="addSpeechBubble()" style="background:#03dac6; color:#000;">+ Add Speech Bubble</button>
+  <!-- Upload Section -->
+  <div class="upload-card">
+    <label for="imageUpload">📁 Tap here to upload photo</label>
+    <input type="file" id="imageUpload" accept="image/*" onchange="showPreview(event)" />
+    <img id="preview-img" alt="Upload Preview" />
   </div>
 
-  <div id="canvas-container">
-    <canvas id="mangaCanvas" width="360" height="500"></canvas>
+  <div class="section-title">Select Anime Style / LoRA</div>
+
+  <!-- Style Cards Grid -->
+  <div class="style-grid">
+    <div class="style-card active" onclick="selectStyle(this, 'anime')">
+      <img src="https://picsum.photos/seed/anime/150/150" />
+      <span>Anime</span>
+    </div>
+    <div class="style-card" onclick="selectStyle(this, 'kawaii')">
+      <img src="https://picsum.photos/seed/kawaii/150/150" />
+      <span>Kawaii</span>
+    </div>
+    <div class="style-card" onclick="selectStyle(this, 'manga')">
+      <img src="https://picsum.photos/seed/manga/150/150" />
+      <span>Manga</span>
+    </div>
+    <div class="style-card" onclick="selectStyle(this, 'ghibli')">
+      <img src="https://picsum.photos/seed/ghibli/150/150" />
+      <span>Ghibli</span>
+    </div>
+    <div class="style-card" onclick="selectStyle(this, 'webtoon')">
+      <img src="https://picsum.photos/seed/webtoon/150/150" />
+      <span>Webtoon</span>
+    </div>
+    <div class="style-card" onclick="selectStyle(this, 'chibi')">
+      <img src="https://picsum.photos/seed/chibi/150/150" />
+      <span>Chibi</span>
+    </div>
+  </div>
+
+  <button class="btn-generate" onclick="generateAnime()">🚀 Generate</button>
+
+  <div id="result-box">
+    <div class="section-title">Result Image:</div>
+    <img id="result-img" />
   </div>
 
   <script>
-    // Aapka Live Colab Backend URL
+    // Colab का नया Gradio URL यहाँ डालें
     const BACKEND_URL = "https://1919259c0accde0d7f.gradio.live";
+    let selectedStyleName = "anime";
 
-    const canvas = new fabric.Canvas('mangaCanvas');
-
-    // 4-Panel Manga Layout Draw karna
-    function drawPanels() {
-      canvas.clear();
-      const rect1 = new fabric.Rect({ left: 10, top: 10, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
-      const rect2 = new fabric.Rect({ left: 10, top: 130, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
-      const rect3 = new fabric.Rect({ left: 10, top: 250, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
-      const rect4 = new fabric.Rect({ left: 10, top: 370, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
-      canvas.add(rect1, rect2, rect3, rect4);
-    }
-    drawPanels();
-
-    // 1. Script generate karke alerts me dikhana
-    async function generateScript() {
-      const idea = document.getElementById('storyIdea').value;
-      if (!idea) return alert('Idea likho pehle!');
-
-      const formData = new FormData();
-      formData.append('idea', idea);
-
-      alert('Script generate ho rahi hai...');
-      const res = await fetch(`${BACKEND_URL}/generate-script`, { method: 'POST', body: formData });
-      const data = await res.json();
-      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-
-      alert("Manga Script Ready!\n\n" + parsed.panels.map(p => `P${p.panel_number}: ${p.dialogue}`).join("\n"));
+    function selectStyle(element, styleName) {
+      document.querySelectorAll('.style-card').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+      selectedStyleName = styleName;
     }
 
-    // 2. Photo ko Anime me convert karke Canvas me add karna
-    async function applyAnimeFilter() {
-      const fileInput = document.getElementById('imageInput');
-      if (!fileInput.files[0]) return alert('Photo select karo!');
+    function showPreview(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const preview = document.getElementById('preview-img');
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+      }
+    }
+
+    async function generateAnime() {
+      const fileInput = document.getElementById('imageUpload');
+      if (!fileInput.files[0]) {
+        return alert('कृपया पहले कोई फ़ोटो अपलोड करें!');
+      }
+
+      alert('Processing... AI मॉडल आपकी इमेज बना रहा है (10-25 सेकंड)');
 
       const formData = new FormData();
       formData.append('file', fileInput.files[0]);
+      formData.append('style', selectedStyleName);
 
-      alert('AI Anime Image bana raha hai (10-20 sec lagenge)...');
-      const res = await fetch(`${BACKEND_URL}/image-to-anime`, { method: 'POST', body: formData });
-      const data = await res.json();
+      try {
+        const response = await fetch(`${BACKEND_URL}/style-transfer`, {
+          method: 'POST',
+          body: formData
+        });
 
-      fabric.Image.fromURL(data.image_base64, function(img) {
-        img.scaleToWidth(160);
-        img.set({ left: 20, top: 20 });
-        canvas.add(img);
-      });
-    }
-
-    // Speech Bubble add karna
-    function addSpeechBubble() {
-      const text = new fabric.IText('Dialog yahan likho', {
-        left: 50, top: 50, fontSize: 14, fill: '#000', backgroundColor: '#ffffff'
-      });
-      canvas.add(text);
-      canvas.setActiveObject(text);
+        const data = await response.json();
+        if (data.image_base64) {
+          const resBox = document.getElementById('result-box');
+          const resImg = document.getElementById('result-img');
+          resImg.src = data.image_base64;
+          resBox.style.display = 'block';
+          resBox.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          alert('इमेज रेंडरिंग में एरर आया। कृपया दोबारा कोशिश करें।');
+        }
+      } catch (err) {
+        alert('सर्वर कनेक्ट नहीं हुआ। सुनिश्चित करें Colab चल रहा है।');
+      }
     }
   </script>
 </body>
 </html>
-
