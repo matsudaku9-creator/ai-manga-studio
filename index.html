@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Manga Studio</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 10px; background: #121212; color: #fff; }
+    h2 { text-align: center; margin-bottom: 10px; }
+    .controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+    input, button, textarea { padding: 8px; border-radius: 6px; border: 1px solid #444; background: #222; color: #fff; }
+    button { background: #6200ea; font-weight: bold; cursor: pointer; border: none; }
+    #canvas-container { display: flex; justify-content: center; overflow: auto; border: 2px solid #555; background: #fff; }
+  </style>
+</head>
+<body>
+  <h2>AI Manga Studio</h2>
+
+  <div class="controls">
+    <textarea id="storyIdea" placeholder="Apna manga idea likho (e.g. A ninja training in rain)"></textarea>
+    <button onclick="generateScript()">1. Generate Manga Script</button>
+
+    <input type="file" id="imageInput" accept="image/*" />
+    <button onclick="applyAnimeFilter()">2. Convert Photo to Anime</button>
+
+    <button onclick="addSpeechBubble()" style="background:#03dac6; color:#000;">+ Add Speech Bubble</button>
+  </div>
+
+  <div id="canvas-container">
+    <canvas id="mangaCanvas" width="360" height="500"></canvas>
+  </div>
+
+  <script>
+    // Aapka Live Colab Backend URL
+    const BACKEND_URL = "https://1919259c0accde0d7f.gradio.live";
+
+    const canvas = new fabric.Canvas('mangaCanvas');
+
+    // 4-Panel Manga Layout Draw karna
+    function drawPanels() {
+      canvas.clear();
+      const rect1 = new fabric.Rect({ left: 10, top: 10, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
+      const rect2 = new fabric.Rect({ left: 10, top: 130, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
+      const rect3 = new fabric.Rect({ left: 10, top: 250, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
+      const rect4 = new fabric.Rect({ left: 10, top: 370, width: 340, height: 110, fill: '#fff', stroke: '#000', strokeWidth: 3, selectable: false });
+      canvas.add(rect1, rect2, rect3, rect4);
+    }
+    drawPanels();
+
+    // 1. Script generate karke alerts me dikhana
+    async function generateScript() {
+      const idea = document.getElementById('storyIdea').value;
+      if (!idea) return alert('Idea likho pehle!');
+
+      const formData = new FormData();
+      formData.append('idea', idea);
+
+      alert('Script generate ho rahi hai...');
+      const res = await fetch(`${BACKEND_URL}/generate-script`, { method: 'POST', body: formData });
+      const data = await res.json();
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+
+      alert("Manga Script Ready!\n\n" + parsed.panels.map(p => `P${p.panel_number}: ${p.dialogue}`).join("\n"));
+    }
+
+    // 2. Photo ko Anime me convert karke Canvas me add karna
+    async function applyAnimeFilter() {
+      const fileInput = document.getElementById('imageInput');
+      if (!fileInput.files[0]) return alert('Photo select karo!');
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      alert('AI Anime Image bana raha hai (10-20 sec lagenge)...');
+      const res = await fetch(`${BACKEND_URL}/image-to-anime`, { method: 'POST', body: formData });
+      const data = await res.json();
+
+      fabric.Image.fromURL(data.image_base64, function(img) {
+        img.scaleToWidth(160);
+        img.set({ left: 20, top: 20 });
+        canvas.add(img);
+      });
+    }
+
+    // Speech Bubble add karna
+    function addSpeechBubble() {
+      const text = new fabric.IText('Dialog yahan likho', {
+        left: 50, top: 50, fontSize: 14, fill: '#000', backgroundColor: '#ffffff'
+      });
+      canvas.add(text);
+      canvas.setActiveObject(text);
+    }
+  </script>
+</body>
+</html>
+
